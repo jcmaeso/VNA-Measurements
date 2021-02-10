@@ -1,0 +1,9 @@
+*.png
+*.zip
+*.npy
+
+./medidas
+./node_modules
+./.vscode
+./__pycache__
+
