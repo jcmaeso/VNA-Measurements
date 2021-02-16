@@ -12,7 +12,7 @@ import os.path
 
 freq_start = 17.5
 freq_end = 21.4
-n_points = 401
+n_points = 801
 bw_if = 100
 
 def config_vna(instrument):

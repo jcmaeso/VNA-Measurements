@@ -248,23 +248,33 @@ def switching_measurement(boardInterface,port,channels_sequence):
     rm = pyvisa.ResourceManager()
     board.board_complete_init_rx() #TX board Init LNA registers and Enable channels
     time.sleep(1);
+    board.enable_channels(0x00)
+    time.sleep(1);
+    board.send_set_phase_amp_to_channel(0,0,0x3F)
+    board.send_set_phase_amp_to_channel(1,0,0x3F)
+    board.send_set_phase_amp_to_channel(2,0,0x3F)
+    board.send_set_phase_amp_to_channel(3,0,0x3F)
+    board.send_set_phase_amp_to_channel(4,0,0x3F)
+    board.send_set_phase_amp_to_channel(5,0,0x3F)
+    board.send_set_phase_amp_to_channel(6,0,0x3F)
+    board.send_set_phase_amp_to_channel(7,0,0x3F)
     input("Check Power Consumption!!")
-    try:
-        inst = rm.open_resource('GPIB0::15::INSTR')
-    except:
-        print("Error openning instrument")
-        exit()
-    inst.timeout = 20000
+    #try:
+    #    inst = rm.open_resource('GPIB0::15::INSTR')
+    #except:
+    #    print("Error openning instrument")
+    #    exit()
+    #inst.timeout = 20000
     enable_channels_bits = 0
     enabled_channels = 0
 
     for i in range(0,len(channels_sequence)):
-        enable_channels_bits = enable_channels_bits | (1 << i)
+        enable_channels_bits = enable_channels_bits | (1 << channels_sequence[i])
         board.enable_channels(enable_channels_bits)
         for j in range(0,i+1):
             board.send_set_phase_amp_to_channel(channels_sequence[j],0,0x3F)
         input("Check power consumption")
-        vna_8722ES.measure_s2p(inst,"med_switching_p_{}_channels_on_{}".format(port,i+1));
+        #vna_8722ES.measure_s2p(inst,"med_switching_p_{}_channels_on_{}".format(port,i+1));
     inst.close()
     
 
