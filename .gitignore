@@ -1,6 +1,7 @@
 *.png
 *.zip
 *.npy
+*.s2p
 
 ./medidas
 ./node_modules

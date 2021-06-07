@@ -1,9 +1,11 @@
+import os
 import serial
 import pyvisa
 import time
 import sys
+from datetime import datetime
 
-import vna_8722ES 
+import vna_8722ES_readparams 
 
 class SerialControllerBoardInterface():
 
@@ -192,7 +194,7 @@ def zerostate_measuremet(boardInterface):
         if channel != 7:
             input("Channel Done, change vna port and reset PSU")
 
-def single_channel_measurement(boardInterface,channel=0,phase = 0,amp = 0x3F):
+def single_channel_measurement_rx(boardInterface,channel=0,phase = 0,amp = 0x3F):
     board = ControllerBoardInterface(boardInterface)
     rm = pyvisa.ResourceManager()
     board.board_complete_init_rx_channel(channel) #Init LNA registers and Enable channels
@@ -206,6 +208,24 @@ def single_channel_measurement(boardInterface,channel=0,phase = 0,amp = 0x3F):
         exit()
     inst.timeout = 20000
     vna_8722ES.measure_s2p(inst,"P{}_single_phase_{}_amp_{}".format(channel,phase,amp))
+    inst.close()
+
+def single_channel_measurement(boardInterface,channel=0,phase = 0,amp = 0x3F):
+    board = ControllerBoardInterface(boardInterface)
+    rm = pyvisa.ResourceManager()
+    board.board_complete_init() #TX board Init LNA registers and Enable channels
+    board.enable_channels(1 << channel)
+    board.send_set_phase_amp_to_channel(channel,phase,amp)
+    time.sleep(1);
+    input("Check Power Consumption!!")
+    try:
+        inst = rm.open_resource('GPIB1::15::INSTR')
+    except:
+        print("Error openning instrument")
+        exit()
+    inst.timeout = 20000
+    vna_8722ES_readparams.read_vna_config(inst)
+    vna_8722ES_readparams.measure_s2p(inst,"P{}_single_phase_{}_amp_{}".format(channel,phase,amp))
     inst.close()
 
 def branchline_measurement(boardInterface,channels=[]):
@@ -246,9 +266,10 @@ def branchline_measurement(boardInterface,channels=[]):
 def switching_measurement(boardInterface,port,channels_sequence):
     board = ControllerBoardInterface(boardInterface)
     rm = pyvisa.ResourceManager()
-    board.board_complete_init_rx() #TX board Init LNA registers and Enable channels
+    board.board_complete_init() #TX board Init LNA registers and Enable channels
     time.sleep(1);
-    board.enable_channels(0x00)
+    input("Check Power Consumption!! (All channels enabled with max attenuation)")
+    board.enable_channels(0xFF)
     time.sleep(1);
     board.send_set_phase_amp_to_channel(0,0,0x3F)
     board.send_set_phase_amp_to_channel(1,0,0x3F)
@@ -258,12 +279,14 @@ def switching_measurement(boardInterface,port,channels_sequence):
     board.send_set_phase_amp_to_channel(5,0,0x3F)
     board.send_set_phase_amp_to_channel(6,0,0x3F)
     board.send_set_phase_amp_to_channel(7,0,0x3F)
-    input("Check Power Consumption!!")
-    #try:
-    #    inst = rm.open_resource('GPIB0::15::INSTR')
-    #except:
-    #    print("Error openning instrument")
-    #    exit()
+    input("Check Power Consumption!! (All channels disabled with min attenuation)")
+    """
+    try:
+        inst = rm.open_resource('GPIB0::15::INSTR')
+    except:
+        print("Error openning instrument")
+        exit()
+    """
     #inst.timeout = 20000
     enable_channels_bits = 0
     enabled_channels = 0
@@ -273,20 +296,24 @@ def switching_measurement(boardInterface,port,channels_sequence):
         board.enable_channels(enable_channels_bits)
         for j in range(0,i+1):
             board.send_set_phase_amp_to_channel(channels_sequence[j],0,0x3F)
-        input("Check power consumption")
-        #vna_8722ES.measure_s2p(inst,"med_switching_p_{}_channels_on_{}".format(port,i+1));
+        #input("Check power consumption")
+        time.sleep(1)
+        #vna_8722ES.measure_s2p(inst,"med_switching_p_{}_channels_on_{}".format(port,i+1))
     inst.close()
     
 
 
 if __name__ == "__main__":
-    boardInterface = "COM3"
+    boardInterface = "COM6"
     if len(sys.argv) > 1:
         if sys.argv[1] == "zerostate":
             zerostate_measuremet(boardInterface)
-        elif sys.argv[1] == "rx":
+        elif sys.argv[1] == "tx":
             if len(sys.argv) >= 3:
                 single_channel_measurement(boardInterface,channel = int(sys.argv[2]))
+        elif sys.argv[1] == "rx":
+            if len(sys.argv) >= 3:
+                single_channel_measurement_rx(boardInterface,channel = int(sys.argv[2]))
         elif sys.argv[1] == "branchline":
             if len(sys.argv) == 4:
                 branchline_measurement(boardInterface,channels = [int(sys.argv[2]),int(sys.argv[3])])

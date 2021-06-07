@@ -10,8 +10,8 @@ import time
 import sys
 import os.path
 
-freq_start = 17.5
-freq_end = 21.4
+freq_start = 0.1
+freq_end = 3
 n_points = 801
 bw_if = 100
 
@@ -21,6 +21,12 @@ def config_vna(instrument):
     instrument.write("LINFREQ;")
     instrument.write("POIN {};".format(n_points))
     instrument.write("IFBW {};".format(bw_if))
+
+def read_vna_config(instrument):
+    global freq_end,freq_start,n_points
+    freq_start = float(instrument.query("STAR?;"))
+    freq_end = float(instrument.query("STOP?;"))
+    n_points = int(float(instrument.query("POIN?;")))
 
 
 def config_channel_setup(instrument):
@@ -41,6 +47,21 @@ def config_channel_setup(instrument):
     instrument.write('S22;')
     instrument.write("POLA;")
     instrument.write("POLMRI;")
+
+def return_config_channel_setup(instrument):
+    instrument.write('SPLID4;')
+    instrument.write('CHAN1;')
+    instrument.write('S11;')
+    instrument.write("LOGM;")
+    instrument.write('CHAN2;')
+    instrument.write('S21;')
+    instrument.write("LOGM;")
+    instrument.write('CHAN3;')
+    instrument.write('S12;')
+    instrument.write("LOGM;")
+    instrument.write('CHAN4;')
+    instrument.write('S22;')
+    instrument.write("LOGM;")
 
 def measure_s_param_float32(instrument,graphTitle=""):
     instrument.write("FORM2;")
@@ -91,6 +112,7 @@ def measure_s2p(instrument,filename,format="f32"):
 
     ntw = rf.Network(frequency=freq2, s=s)
     save_s2p(ntw,"{}.s2p".format(filename))
+    return_config_channel_setup(instrument)
 
 def convert_to_ieee_float32(data):
     real = np.array([])
@@ -144,7 +166,7 @@ if __name__ == "__main__":
     rm = pyvisa.ResourceManager()
     #print(rm.list_resources())
     try:
-        inst = rm.open_resource('GPIB0::15::INSTR')
+        inst = rm.open_resource('GPIB1::15::INSTR')
     except:
         print("Error openning instrument")
         exit()
@@ -155,6 +177,7 @@ if __name__ == "__main__":
         print("VNA Configured")
         inst.close()
         exit()
+    read_vna_config(inst)
     #config_vna(inst)
     start = time.time()
     measure_s2p(inst,str(sys.argv[1]))
