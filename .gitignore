@@ -3,6 +3,7 @@
 *.npy
 *.s2p
 
+./Calibrations
 ./medidas
 ./node_modules
 ./.vscode

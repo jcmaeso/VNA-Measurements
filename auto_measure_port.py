@@ -3,6 +3,7 @@ import serial
 import pyvisa
 import time
 import sys
+import json
 from datetime import datetime
 
 import vna_8722ES_readparams 
@@ -148,6 +149,28 @@ class ControllerBoardInterface():
         self._serial_ctrl.send_command(self._serial_ctrl.build_command(0x01,0x03,channels),5)
         self._serial_ctrl.close_port()
 
+def custom_measuremrnt_tx(boardInterface,inst_dir,channels,amplitudes,phases,meas_out):
+    board = ControllerBoardInterface(boardInterface)
+    rm = pyvisa.ResourceManager()
+    board.board_complete_init() #TX board Init LNA registers and Enable channels
+    
+    board.enable_channels(channels)
+    board.open_comm_port()
+    board.send_phases_amps_mutiple(phases,amplitudes)
+    board.close_comm_port()
+    time.sleep(1);
+    input("Check Power Consumption!!")
+    try:
+        inst = rm.open_resource(inst_dir)
+    except:
+        print("Error openning instrument")
+        exit()
+    inst.timeout = 20000
+    vna_8722ES_readparams.read_vna_config(inst) #Track VNA config
+    vna_8722ES_readparams.measure_s2p(inst,meas_out)
+    inst.close()
+
+
 def phase_measurement(board,inst,channel):
     amplitudes = [0x3F for i in range(0,8)]
     print("Starting Phase Measurement")
@@ -210,7 +233,7 @@ def single_channel_measurement_rx(boardInterface,channel=0,phase = 0,amp = 0x3F)
     vna_8722ES.measure_s2p(inst,"P{}_single_phase_{}_amp_{}".format(channel,phase,amp))
     inst.close()
 
-def single_channel_measurement(boardInterface,channel=0,phase = 0,amp = 0x3F):
+def single_channel_measurement_tx(boardInterface,channel=0,phase = 0,amp = 0x3F):
     board = ControllerBoardInterface(boardInterface)
     rm = pyvisa.ResourceManager()
     board.board_complete_init() #TX board Init LNA registers and Enable channels
@@ -251,14 +274,14 @@ def branchline_measurement(boardInterface,channels=[]):
         board.send_set_phase_amp_to_channel(channels[0],0,0x3F)
         board.send_set_phase_amp_to_channel(channels[1],0,0x00)
         #Measure
-        vna_8722ES.measure_s2p(inst,output_files_on[i])
+        vna_8722ES_readparams.measure_s2p(inst,output_files_on[i])
         board.board_complete_init_rx()
         board.enable_channels(0x01 << channels[0])
         print(texts2[i])
         input("Check power consumption")
         board.send_set_phase_amp_to_channel(channels[0],0,0x3F)
         #Measure
-        vna_8722ES.measure_s2p(inst,output_files_off[i])
+        vna_8722ES_readparams.measure_s2p(inst,output_files_off[i])
         input("Change Port")
 
     inst.close()
@@ -301,16 +324,55 @@ def switching_measurement(boardInterface,port,channels_sequence):
         #vna_8722ES.measure_s2p(inst,"med_switching_p_{}_channels_on_{}".format(port,i+1))
     inst.close()
     
+def power_curve_calibration(instaddr,min_power,max_power):
+    rm = pyvisa.ResourceManager()
+    folder = "Calibrations"
+    input("Check Power Consumption!!")
+    try:
+        inst = rm.open_resource(instaddr)
+    except:
+        print("Error openning instrument")
+        exit()
+    vna_8722ES_readparams.read_vna_config(inst) #Track VNA config
+    input("P1-Short P2-Open")
+    vna_8722ES_readparams.power_sweep_measurement(inst,min_power,max_power,os.path.join(folder,"P1-Short:P2-Open"))
+    input("P1-Load P2-Short")
+    vna_8722ES_readparams.power_sweep_measurement(inst,min_power,max_power,os.path.join(folder,"P1-Load:P2-Short"))
+    input("P1-Open P2-Load")
+    vna_8722ES_readparams.power_sweep_measurement(inst,min_power,max_power,os.path.join(folder,"P1-Open:P2-Load"))
+    input("Thru")
+    vna_8722ES_readparams.power_sweep_measurement(inst,min_power,max_power,os.path.join(folder,"Thru"))
+
+def power_curve_measurement(boardInterface,instaddr,min_power,max_power,channels,phases,amplitudes,filename):
+    board = ControllerBoardInterface(boardInterface)
+    rm = pyvisa.ResourceManager()
+    #Board Programming
+    board.board_complete_init() #TX board Init LNA registers and Enable channels
+    board.enable_channels(channels)
+    board.send_phases_amps_mutiple(phases,amplitudes)
+    time.sleep(1);
+    input("Check Power Consumption!!")
+    try:
+        inst = rm.open_resource(instaddr)
+    except:
+        print("Error openning instrument")
+        exit()
+    inst.timeout = 20000
+    vna_8722ES_readparams.read_vna_config(inst) #Track VNA config
+    vna_8722ES_readparams.power_sweep_measurement(inst,min_power,max_power,filename)
+    inst.close()
+    board.close_comm_port()
 
 
 if __name__ == "__main__":
     boardInterface = "COM6"
+    instaddr = "GPIB0::15::INSTR"
     if len(sys.argv) > 1:
         if sys.argv[1] == "zerostate":
             zerostate_measuremet(boardInterface)
         elif sys.argv[1] == "tx":
             if len(sys.argv) >= 3:
-                single_channel_measurement(boardInterface,channel = int(sys.argv[2]))
+                single_channel_measurement_tx(boardInterface,channel = int(sys.argv[2]))
         elif sys.argv[1] == "rx":
             if len(sys.argv) >= 3:
                 single_channel_measurement_rx(boardInterface,channel = int(sys.argv[2]))
@@ -321,6 +383,75 @@ if __name__ == "__main__":
             if len(sys.argv) == 4:
                 channel_list = [int(i) for i in sys.argv[3].split(" ")] 
                 switching_measurement(boardInterface,int(sys.argv[2]),channel_list)
+        elif sys.argv[1] == "powercal":
+            min_power = int(sys.argv[2])
+            max_power = int(sys.argv[3])
+            if (max_power > -10):
+                print("Max power out of range")
+                exit()
+            if (min_power < -35):
+                print("Min power out of range")
+                exit()
+            power_curve_calibration(instaddr,min_power,max_power)
+        elif sys.argv[1] == "config":
+            if(len(sys.argv) < 3):
+                print("No file loaded selected")
+                exit()
+            #Read JSON
+            try: 
+                f = open(sys.argv[2])
+                data = json.load(f)
+                f.close()
+            except (IOError, OSError) as e:
+                print(e)
+                f.close()
+                exit()
+            #Parse JSONs
+            if data["board"] == "xphased_tx":
+                amplitudes = []
+                phases = []
+                enables = 0
+                vna_dir = ""
+                out_file = sys.argv[2]
+                if(len(sys.argv) >= 4):
+                    out_file = sys.argv[3]
+                try:
+                    data_sorted = sorted(data["channels_config"],key=lambda k: k["descriptor"].lower())
+                    for channel_index in range(0,len(data_sorted)):
+                        amplitudes.append(data_sorted[channel_index]["amp"])
+                        phases.append(data_sorted[channel_index]["pha"])
+                        enables = enables | (int(data_sorted[channel_index]["enable"]) << channel_index)
+                except:
+                    print("Error in channel config")
+                    print("Line {}".format(channel_index))
+
+                try:
+                    vna_dir = data["vna_config"]["addr"]
+                except:
+                    print("Error in VNA config")
+                #Special Modes
+                if(len(sys.argv) >= 5):
+                    if(sys.argv[4] == "power"):
+                        if(len(sys.argv) < 7):
+                            print("Error in arguments for power mode")
+                            exit()
+                        try:
+                            min_power = int(sys.argv[5])
+                            max_power = int(sys.argv[6])
+                            if (max_power > -10):
+                                print("Max power out of range")
+                                exit()
+                            if (min_power < -35):
+                                print("Min power out of range")
+                                exit()
+                        except:
+                            print("Invalid Power arguments")
+                            exit()
+                        power_curve_measurement(boardInterface,vna_dir,min_power,max_power,enables,phases,amplitudes,out_file)
+                #Normal Measurement
+                else:
+                    custom_measuremrnt_tx(boardInterface,vna_dir,enables,amplitudes,phases,out_file)
+            
         exit()
         
     #Full measurement

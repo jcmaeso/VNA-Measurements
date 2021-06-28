@@ -28,6 +28,8 @@ def read_vna_config(instrument):
     freq_end = float(instrument.query("STOP?;"))
     n_points = int(float(instrument.query("POIN?;")))
 
+def config_vna_power(instrument,power):
+    instrument.write('POWE{};'.format(power))
 
 def config_channel_setup(instrument):
     instrument.write('SPLID4;')
@@ -113,6 +115,11 @@ def measure_s2p(instrument,filename,format="f32"):
     ntw = rf.Network(frequency=freq2, s=s)
     save_s2p(ntw,"{}.s2p".format(filename))
     return_config_channel_setup(instrument)
+
+def power_sweep_measurement(instrument,power_min,power_max,filename):
+    for power in range(power_min,power_max+1):
+        config_vna_power(instrument,power)
+        measure_s2p(instrument,"{}_po{}".format(filename,power))
 
 def convert_to_ieee_float32(data):
     real = np.array([])

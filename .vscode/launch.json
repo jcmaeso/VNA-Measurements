@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["tx","1"]
+            "args": ["config","meas_text.json"]
         },
         {
             "type": "node",

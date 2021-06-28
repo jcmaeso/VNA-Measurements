@@ -1,0 +1,17 @@
+{
+    "board": "xphased_tx",
+    "channels_config": [
+        {"descriptor": "Channel 0","enable": false,"amp":63,"pha":0},
+        {"descriptor": "channel 1","enable": false,"amp":63,"pha":0},
+        {"descriptor": "channel 2","enable": false,"amp":63,"pha":0},
+        {"descriptor": "channel 3","enable": false,"amp":63,"pha":0},
+        {"descriptor": "channel 4","enable": false,"amp":63,"pha":0},
+        {"descriptor": "channel 5","enable": false,"amp":63,"pha":0},
+        {"descriptor": "channel 6","enable": true,"amp":63,"pha":0},
+        {"descriptor": "channel 7","enable": true,"amp":32,"pha":4}
+    ],
+    "vna_config" : {
+        "model": "8722ES",
+        "addr": "GPIB0::15::INSTR"
+    }
+}
