@@ -10,9 +10,9 @@ import time
 import sys
 import os.path
 
-freq_start = 0.1
-freq_end = 3
-n_points = 801
+freq_start = 27.5
+freq_end = 31
+n_points = 51
 bw_if = 100
 
 def config_vna(instrument):
@@ -24,8 +24,8 @@ def config_vna(instrument):
 
 def read_vna_config(instrument):
     global freq_end,freq_start,n_points
-    freq_start = float(instrument.query("STAR?;"))
-    freq_end = float(instrument.query("STOP?;"))
+    freq_start = float(instrument.query("STAR?;"))/1e9
+    freq_end = float(instrument.query("STOP?;"))/1e9
     n_points = int(float(instrument.query("POIN?;")))
 
 def config_vna_power(instrument,power):
@@ -171,13 +171,13 @@ def plot_s2p(s2p_data):
 
 if __name__ == "__main__":
     rm = pyvisa.ResourceManager()
-    #print(rm.list_resources())
+    print(rm.list_resources())
     try:
-        inst = rm.open_resource('GPIB1::15::INSTR')
+        inst = rm.open_resource('GPIB0::15::INSTR')
     except:
         print("Error openning instrument")
         exit()
-    inst.timeout = 20000
+    inst.timeout = 30000
     print(inst.query("*IDN?"))
     if len(sys.argv) < 2:
         config_vna(inst)
@@ -187,7 +187,8 @@ if __name__ == "__main__":
     read_vna_config(inst)
     #config_vna(inst)
     start = time.time()
-    measure_s2p(inst,str(sys.argv[1]))
+    #measure_s2p(inst,str(sys.argv[1]))
+    measure_s2p(inst,"Adfaf")
     end = time.time()
     print("Total Time time {}s".format(end-start))
     inst.close()

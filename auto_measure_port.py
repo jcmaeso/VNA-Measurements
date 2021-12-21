@@ -180,7 +180,7 @@ def phase_measurement(board,inst,channel):
         phases = [i if x == channel else 0 for x in range(0,8)]
         start = time.time()
         board.send_phases_amps_mutiple(phases,amplitudes)
-        vna_8722ES.measure_s2p(inst,"P{}_pha_{}".format(channel,i))
+        vna_8722ES_readparams.measure_s2p(inst,"P{}_pha_{}".format(channel,i))
         end = time.time()
         print("Time State {}s".format(end-start))
     board.close_comm_port()
@@ -193,7 +193,7 @@ def amplitude_measurement(board,inst,channel):
         amplitudes = [(63-i) if x == channel else 0x3F for x in range(0,8)]
         start = time.time()
         board.send_phases_amps_mutiple(phases,amplitudes)
-        vna_8722ES.measure_s2p(inst,"P{}_amp_{}".format(channel,(i)))
+        vna_8722ES_readparams.measure_s2p(inst,"P{}_amp_{}".format(channel,(i)))
         end = time.time()
         print("Time State {}s".format(end-start))
     board.close_comm_port()
@@ -212,7 +212,7 @@ def zerostate_measuremet(boardInterface):
             print("Error openning instrument")
             exit()
         inst.timeout = 20000
-        vna_8722ES.measure_s2p(inst,"P{}_zero".format(channel))
+        vna_8722ES_readparams.measure_s2p(inst,"P{}_zero".format(channel))
         inst.close()
         if channel != 7:
             input("Channel Done, change vna port and reset PSU")
@@ -230,7 +230,7 @@ def single_channel_measurement_rx(boardInterface,channel=0,phase = 0,amp = 0x3F)
         print("Error openning instrument")
         exit()
     inst.timeout = 20000
-    vna_8722ES.measure_s2p(inst,"P{}_single_phase_{}_amp_{}".format(channel,phase,amp))
+    vna_8722ES_readparams.measure_s2p(inst,"P{}_single_phase_{}_amp_{}".format(channel,phase,amp))
     inst.close()
 
 def single_channel_measurement_tx(boardInterface,channel=0,phase = 0,amp = 0x3F):
@@ -289,6 +289,7 @@ def branchline_measurement(boardInterface,channels=[]):
 def switching_measurement(boardInterface,port,channels_sequence):
     board = ControllerBoardInterface(boardInterface)
     rm = pyvisa.ResourceManager()
+    
     board.board_complete_init() #TX board Init LNA registers and Enable channels
     time.sleep(1);
     input("Check Power Consumption!! (All channels enabled with max attenuation)")
@@ -323,6 +324,45 @@ def switching_measurement(boardInterface,port,channels_sequence):
         time.sleep(1)
         #vna_8722ES.measure_s2p(inst,"med_switching_p_{}_channels_on_{}".format(port,i+1))
     inst.close()
+
+
+
+def circular_polarization_rx(boardInterface,instaddr,channel=0):
+    board = ControllerBoardInterface(boardInterface)
+    rm = pyvisa.ResourceManager()
+    board.board_complete_init_rx() #TX board Init LNA registers and Enable channels
+    try:
+        inst = rm.open_resource(instaddr)
+        inst.timeout = 50000
+    except:
+        print("Error openning instrument")
+        exit()
+    time.sleep(1);
+    input("Check Power Consumption!! (All channels enabled with max attenuation)")
+    board.enable_channels(0xFF)
+    time.sleep(1);
+    board.send_set_phase_amp_to_channel(0,0,0x3F)
+    board.send_set_phase_amp_to_channel(1,0,0x3F)
+    board.send_set_phase_amp_to_channel(2,0,0x3F)
+    board.send_set_phase_amp_to_channel(3,0,0x3F)
+    board.send_set_phase_amp_to_channel(4,0,0x3F)
+    board.send_set_phase_amp_to_channel(5,0,0x3F)
+    board.send_set_phase_amp_to_channel(6,0,0x3F)
+    board.send_set_phase_amp_to_channel(7,0,0x3F)
+    input("Check Power Consumption!! (All channels disabled with min attenuation)")
+    board.enable_channels(0b10011001) #Enable channel 0,4,3,7
+    phase_inc = [0,22.5,39.75,78.75,118.125]
+    phase_pol = [0,90,180,270]
+    channels_on = [0,3,4,7]
+    for phase in phase_inc:
+        for ch in range(0,len(channels_on)):
+            pha_prog = ((phase_pol[ch]+phase*ch)%360)/5.625
+            board.send_set_phase_amp_to_channel(channels_on[ch],int(pha_prog),0x3F)
+        vna_8722ES_readparams.measure_s2p(inst,"chino_m{}_p{}".format(phase,channel))
+        time.sleep(5)  
+    
+    inst.close()
+
     
 def power_curve_calibration(instaddr,min_power,max_power):
     rm = pyvisa.ResourceManager()
@@ -365,7 +405,7 @@ def power_curve_measurement(boardInterface,instaddr,min_power,max_power,channels
 
 
 if __name__ == "__main__":
-    boardInterface = "COM6"
+    boardInterface = "COM3"
     instaddr = "GPIB0::15::INSTR"
     if len(sys.argv) > 1:
         if sys.argv[1] == "zerostate":
@@ -375,7 +415,8 @@ if __name__ == "__main__":
                 single_channel_measurement_tx(boardInterface,channel = int(sys.argv[2]))
         elif sys.argv[1] == "rx":
             if len(sys.argv) >= 3:
-                single_channel_measurement_rx(boardInterface,channel = int(sys.argv[2]))
+                circular_polarization_rx(boardInterface,instaddr,channel = int(sys.argv[2]));
+                #single_channel_measurement_rx(boardInterface,channel = int(sys.argv[2]))
         elif sys.argv[1] == "branchline":
             if len(sys.argv) == 4:
                 branchline_measurement(boardInterface,channels = [int(sys.argv[2]),int(sys.argv[3])])

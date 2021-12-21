@@ -1,0 +1,9 @@
+freqs = linspace(26,40,801)*1e9;
+wr28_corta = sparameters("PruebaWR28_CORTA.s2p");
+plot(freqs,angle(squeeze(wr28_corta.Parameters(2,1,:))));
+hold on;
+fc = 21.077e9;
+c = 299792458; 
+lg = c/sqrt(freqs.^2-fc^2);
+beta = 2*pi/lg;
+plot()

@@ -5,12 +5,36 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Caracterizacion canal",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "0"
+            ]
+        },
+        {
+            "name": "Medidas Matlab",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "Configs/pha_amp.mat",
+                "0"
+            ]
+        },
+        {
             "name": "Python: Archivo actual",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["config","meas_text.json"]
+            "args": [
+                "rx",
+                "2"
+            ]
         },
         {
             "type": "node",
